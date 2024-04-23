@@ -5,7 +5,6 @@ use actix_web::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::{self, FromRow};
-use crate::AppState;
 
 #[derive(Serialize, FromRow)]
 struct User {
