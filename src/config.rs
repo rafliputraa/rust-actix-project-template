@@ -1,4 +1,5 @@
 use dotenv::dotenv;
+use crate::database::DatabaseConnection;
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct Config {
