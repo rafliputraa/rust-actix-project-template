@@ -1,30 +1,36 @@
-use actix_web::{App, HttpServer};
-use actix_web::web::Data;
+use actix_web::{App, HttpServer, web};
 use dotenv::dotenv;
-use listenfd::ListenFd;
-use crate::database::add_pool;
+use sqlx::{Pool, Postgres};
+use crate::config::CONFIG;
+use crate::database::create_pool;
+use crate::routes::routes;
 
-use crate::services::{create_user_article, fetch_user_articles, fetch_users};
+pub struct AppState { pub db: Pool<Postgres>
+}
 
 pub async fn server() -> std::io::Result<()> {
     dotenv().ok();
     env_logger::init();
 
-    let mut listenfd = ListenFd::from_env();
+    let pool;
 
-    HttpServer::new(move || {
+    match create_pool().await {
+        Ok(conn) => {
+            pool = conn
+        }
+        Err(err) => {
+            eprintln!("Failed to create database pool: {}", err);
+            std::process::exit(1);
+        }
+    }
+
+    println!("🚀 Server started successfully");
+    let server = HttpServer::new(move || {
         App::new()
-            .configure(add_pool)
-            .service(fetch_users)
-            .service(fetch_user_articles)
-            .service(create_user_article)
+            .app_data(web::Data::new(AppState{
+                db: pool.clone()
+            }))
+            .configure(routes)
     });
-
-    server = if let Some(l) = listenfd.take_tcp_listener(0)? {
-        server.listen(l)?
-    } else {
-        server.bind("localhost:8888")?
-    };
-
-    server.run().await
+    server.bind(&CONFIG.server)?.run().await
 }

@@ -1,69 +1,19 @@
-use actix_web::web;
-use sqlx::PgPool;
-use crate::config::{Config, CONFIG};
-#[derive(Clone, Deserialize, Debug, PartialEq)]
-#[serde(field_identifier, rename_all = "lowercase")]
-#[serde(untagged)]
-pub enum DatabaseConnection {
-    Cockroach,
-    Mysql,
-    Postgres,
-    Sqlite,
-}
+use sqlx::{Pool, Postgres, Row};
+use sqlx::postgres::PgPoolOptions;
+use crate::config::CONFIG;
+pub async fn create_pool() -> Result<Pool<Postgres>, sqlx::Error> {
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&CONFIG.database_url).await?;
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await?;
 
-pub type CockroachPool = PgPool;
-pub type MysqlPool = MysqlPool;
-pub type PostgresPool = PgPool;
-pub type SqlitePool = SqlitePool;
-
-#[cfg(feature = "cockroach")]
-pub type PoolType = CockroachPool;
-
-#[cfg(feature = "mysql")]
-pub type PoolType = MysqlPool;
-
-#[cfg(feature = "postgres")]
-pub type PoolType = PostgresPool;
-
-#[cfg(feature = "sqlite")]
-pub type PoolType = SqlitePool;
-
-pub enum InferPool {
-    Cockroach(CockroachPool),
-    Mysql(MysqlPool),
-    Postgres(PostgresPool),
-    Sqlite(SqlitePool),
-}
-
-impl InferPool {
-    pub async fn init_pool(config: Config) -> Result<Self, sqlx::Error> {
-        match config.database {
-            DatabaseConnection::Cockroach => {
-                let pool = PgPool::connect(&config.database_url).await?;
-                Ok(InferPool::Cockroach(pool))
-            }
-            DatabaseConnection::Mysql => {
-                let pool = MysqlPool::connect(&config.database_url).await?;
-                Ok(InferPool::Mysql(pool))
-            }
-            DatabaseConnection::Postgres => {
-                let pool = PgPool::connect(&config.database_url).await?;
-                Ok(InferPool::Postgres(pool))
-            }
-            DatabaseConnection::Sqlite => {
-                let pool = PgPool::connect(&config.database_url).await?;
-                Ok(InferPool::Sqlite(pool))
-            }
-        }
-    }
-}
-
-pub async fn add_pool(config: &mut web::ServiceConfig) {
-    let pool = InferPool::init_pool(CONFIG.clone()).await.expect("Failed to create connection pool");
-    match pool {
-        InferPool::Cockroach(cockroach_pool) => config.app_data(cockroach_pool),
-        InferPool::Mysql(mysql_pool) => config.app_data(mysql_pool),
-        InferPool::Postgres(postgres_pool) => config.app_data(postgres_pool),
-        InferPool::Sqlite(sqlite_pool) => config.app_data(sqlite_pool),
-    };
+    let ping_response = sqlx::query("SELECT 1 + 1 as sum")
+        .fetch_one(&pool)
+        .await?;
+    let sum: i32 = ping_response.get("sum");
+    println!("Successfully connected to the DB, 1+1: {}", sum);
+    println!("✅Connection to the database is successful!");
+    Ok(pool)
 }

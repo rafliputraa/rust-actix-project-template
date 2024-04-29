@@ -1,20 +1,19 @@
-use actix_web::{
-    get, post,
-    web::{Data, Json, Path},
-    Responder, HttpResponse
-};
+use actix_web::web::{Data, Json, Path};
 use serde::{Deserialize, Serialize};
 use sqlx::{self, FromRow};
+use crate::errors::ApiError;
+use crate::helpers::respond_json;
+use crate::server::AppState;
 
 #[derive(Serialize, FromRow)]
-struct User {
+pub struct User {
     id: i32,
     first_name: String,
     last_name: String,
 }
 
 #[derive(Serialize, FromRow)]
-struct Article {
+pub struct Article {
     id: i32,
     title: String,
     content: String,
@@ -27,50 +26,41 @@ pub struct CreateArticleBody {
     pub content: String,
 }
 
-#[get("/users")]
-pub async fn fetch_users(state: Data<AppState>) -> impl Responder{
-    match sqlx::query_as::<_, User>("select id, first_name, last_name from users")
+pub async fn fetch_users(state: Data<AppState>) -> Result<Json<Vec<User>>, ApiError>{
+    let users = sqlx::query_as::<_, User>("select id, first_name, last_name from users")
         .fetch_all(&state.db)
-        .await
-    {
-        Ok(users) => HttpResponse::Ok().json(users),
-        Err(_) => HttpResponse::NotFound().json("No users found"),
-    }
+        .await?;
+    respond_json(users)
 }
 
-#[get("/users/{id}/articles")]
-pub async fn fetch_user_articles(state: Data<AppState>, path: Path<i32>) -> impl Responder {
+pub async fn fetch_user_articles(state: Data<AppState>, path: Path<i32>) -> Result<Json<Vec<Article>>, ApiError> {
     let id = path.into_inner();
 
-    match sqlx::query_as::<_, Article> (
+    let articles = sqlx::query_as::<_, Article> (
         "select id, title, content, created_by from articles where created_by = $1"
     )
         .bind(id)
         .fetch_all(&state.db)
-        .await
-    {
-        Ok(articles) => HttpResponse::Ok().json(articles),
-        Err(_) => HttpResponse::NotFound().json("No articles found"),
+        .await?;
+    if articles.is_empty() {
+        return Err(ApiError::NotFound);
     }
+    respond_json(articles)
 }
 
-#[post("/users/{id}/articles")]
 pub async fn create_user_article(
     state: Data<AppState>,
     path: Path<i32>,
     body: Json<CreateArticleBody>,
-) -> impl Responder {
+) -> Result<Json<Article>, ApiError> {
     let id = path.into_inner();
-    match sqlx::query_as::<_, Article>(
+   let article = sqlx::query_as::<_, Article>(
         "INSERT INTO articles (title, content, created_by) VALUES ($1, $2, $3) RETURNING id, title, content, created_by",
     )
         .bind(&body.title)
         .bind(&body.content)
         .bind(id)  // Bind id as integer
         .fetch_one(&state.db)
-        .await
-    {
-        Ok(article) => HttpResponse::Ok().json(article),
-        Err(_) => HttpResponse::InternalServerError().json("Failed to create user article"),
-    }
+        .await?;
+    respond_json(article)
 }

@@ -1,11 +1,10 @@
 use dotenv::dotenv;
-use crate::database::DatabaseConnection;
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct Config {
     pub database_url: String,
-    pub database: DatabaseConnection,
     pub server: String,
+    pub app_version: String,
 }
 
 lazy_static! {

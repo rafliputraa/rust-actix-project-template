@@ -11,6 +11,10 @@ mod server;
 mod database;
 mod config;
 mod services;
+mod routes;
+pub mod handlers;
+mod errors;
+mod helpers;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
