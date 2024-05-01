@@ -5,6 +5,7 @@ pub struct Config {
     pub database_url: String,
     pub server: String,
     pub app_version: String,
+    pub log_level: String,
 }
 
 lazy_static! {
