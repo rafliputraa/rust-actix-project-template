@@ -1,16 +1,30 @@
-use actix_web::{App, HttpServer, web};
+use actix_web::{App, HttpServer, middleware, web};
 use dotenv::dotenv;
+use env_logger::Builder;
 use sqlx::{Pool, Postgres};
 use crate::config::CONFIG;
 use crate::database::create_pool;
 use crate::routes::routes;
+use std::io::Write;
+use log::{error, info};
 
 pub struct AppState { pub db: Pool<Postgres>
 }
 
 pub async fn server() -> std::io::Result<()> {
     dotenv().ok();
-    env_logger::init();
+
+    Builder::from_env(env_logger::Env::default().default_filter_or(&CONFIG.log_level))
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "[{} {}] {}",
+                record.level(),
+                chrono::Local::now().format("%Y-%m-%d - %H:%M:%S").to_string(),
+                record.args()
+            )
+        })
+        .init();
 
     let pool;
 
@@ -19,14 +33,15 @@ pub async fn server() -> std::io::Result<()> {
             pool = conn
         }
         Err(err) => {
-            eprintln!("Failed to create database pool: {}", err);
+            error!("Failed to create database pool: {}", err);
             std::process::exit(1);
         }
     }
 
-    println!("🚀 Server started successfully");
+    info!("🚀 Server started successfully");
     let server = HttpServer::new(move || {
         App::new()
+            .wrap(middleware::Logger::default())
             .app_data(web::Data::new(AppState{
                 db: pool.clone()
             }))
