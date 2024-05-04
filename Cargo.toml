@@ -21,3 +21,4 @@ derive_more = "0.99.17"
 uuid = { version = "0.7.0", features = ["serde", "v4"] }
 chrono = "0.4.38"
 log = "0.4.21"
+redis = { version = "0.25.3", features = ["tokio-comp"] }

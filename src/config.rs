@@ -6,6 +6,7 @@ pub struct Config {
     pub server: String,
     pub app_version: String,
     pub log_level: String,
+    pub redis_url: String,
 }
 
 lazy_static! {
