@@ -8,8 +8,7 @@ use crate::routes::routes;
 use std::io::Write;
 use std::sync::Arc;
 use log::{error, info};
-use redis::{AsyncCommands, Client, cmd, RedisResult};
-use redis::aio::MultiplexedConnection;
+use redis::Client;
 
 pub struct AppState {
     pub db: Pool<Postgres>,
@@ -18,10 +17,10 @@ pub struct AppState {
 
 pub async fn server() -> std::io::Result<()> {
 
-    /// Load the environment variables
+    // Load the environment variables
     dotenv().ok();
 
-    /// Build the log format
+    // Build the log format
     Builder::from_env(env_logger::Env::default().default_filter_or(&CONFIG.log_level))
         .format(|buf, record| {
             writeln!(
@@ -34,7 +33,7 @@ pub async fn server() -> std::io::Result<()> {
         })
         .init();
 
-    /// Initialize postgres pool connection
+    // Initialize postgres pool connection
     let pool;
     match create_pool().await {
         Ok(conn) => {
@@ -46,7 +45,7 @@ pub async fn server() -> std::io::Result<()> {
         }
     }
 
-    /// Initialize redis client connection
+    // Initialize redis client connection
     let redis_client;
     match create_redis_client().await {
         Ok(client) => {
@@ -59,8 +58,8 @@ pub async fn server() -> std::io::Result<()> {
     }
     let redis_client_arc = Arc::new(redis_client);
 
-    /// Start the server
     info!("🚀 Server started successfully");
+    // Start the server
     let server = HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default())

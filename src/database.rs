@@ -1,4 +1,3 @@
-use redis::aio::MultiplexedConnection;
 use redis::Client;
 use sqlx::{Pool, Postgres, Row};
 use sqlx::postgres::PgPoolOptions;
